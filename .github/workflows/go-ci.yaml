@@ -61,11 +61,6 @@ jobs:
         run: make test
       - name: Codecov
         uses: codecov/codecov-action@84508663e988701840491b86de86b666e8a86bed # v4
-      - name: Cleanup
-        run: |
-          mkdir SeaLights
-          mv sltoken.txt buildSessionId.txt slcli slgoagent SeaLights/
-          rm -rf SeaLights/
   security_scan:
     name: Security scan
     runs-on: ubuntu-latest
