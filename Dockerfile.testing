@@ -1,0 +1,55 @@
+# Build the manager binary
+FROM registry.access.redhat.com/ubi9/go-toolset:1.21.11-9@sha256:adeedd50ce51475df1978b2da5ab1c0017f9596a5310fc54a26af285345ad7cf as builder
+ARG SEALIGHTS_TOKEN
+ARG BRANCH_NAME
+ARG BUILD_NAME
+
+# Copy the Go Modules manifests
+COPY go.mod go.mod
+COPY vendor/ vendor/
+COPY pkg/ pkg/
+COPY cmd/ cmd/
+
+# debug
+RUN whoami
+
+#### SeaLights instrumentation
+# Download and extract Sealights Go agent
+RUN wget -nv -O sealights-go-agent.tar.gz \
+https://agents.sealights.co/slgoagent/latest/slgoagent-linux-amd64.tar.gz \
+&& tar -xzf ./sealights-go-agent.tar.gz \
+&& rm -f ./sealights-go-agent.tar.gz 
+
+# Download and extract Sealights cli tool
+RUN wget -nv -O sealights-slcli.tar.gz \
+https://agents.sealights.co/slcli/latest/slcli-linux-amd64.tar.gz \
+&& tar -xzf ./sealights-slcli.tar.gz \
+&& rm -f ./sealights-slcli.tar.gz
+
+# Save the Sealights token to a file
+RUN echo "${SEALIGHTS_TOKEN}" > ./token.txt
+
+# Sealights configuration
+RUN ./slcli config init --lang go --token ./token.txt
+RUN ./slcli config create-bsid --app multi-platform-controller \
+--branch ${BRANCH_NAME} --build ${BUILD_NAME}
+
+# Run Sealights scan
+RUN ./slcli scan --bsid buildSessionId.txt --path-to-scanner \
+./slgoagent --workspacepath ./ --scm git --scmProvider github
+
+# Build
+RUN GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o multi-platform-controller cmd/controller/main.go
+
+# Run all tests that are written to the MPC repo
+RUN go fmt ./cmd/... ./pkg/...
+RUN go vet ./cmd/... ./pkg/...
+RUN go test -v ./pkg/...
+
+# Use ubi-minimal as minimal base image to package the manager binary
+# Refer to https://catalog.redhat.com/software/containers/ubi8/ubi-minimal/5c359a62bed8bd75a2c3fba8 for more details
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.4-1227.1725849298@sha256:1b6d711648229a1c987f39cfdfccaebe2bd92d0b5d8caa5dbaa5234a9278a0b2
+COPY --from=builder /opt/app-root/src/multi-platform-controller /
+USER 65532:65532
+
+ENTRYPOINT ["/multi-platform-controller"]
