@@ -40,7 +40,7 @@ Note that there is room to improve here, as if the server is restarted then all 
 
 === Cleanup
 
-Finalizers are used to ensure all resources that were allocated can be cleaned up.
+Finalizers are used to ensure all resources that were allocated can be cleaned up*.
 
 
 
