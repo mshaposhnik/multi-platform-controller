@@ -1,0 +1,81 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: acceptance-tests
+  labels:
+    pipeline-type: acceptance
+  annotations:
+    description: "Pipeline to run acceptance tests"
+spec:
+  params:
+    - name: SNAPSHOT
+      type: string
+  workspaces:
+    - name: source
+  tasks:
+    - name: start-kind
+      workspaces:
+        - name: source
+          workspace: source
+      taskSpec:
+        results:
+          - name: kubeuser
+            description: k8s user
+          - name: kubepassword
+            description: k8s pass
+          - name: kubeserver
+            description: k8s URL
+        steps:
+          - name: install-kind
+            image: docker.io/library/kindest/node:v0.20.0
+            workingDir: $(workspaces.source.path)/source
+            script: |
+              #!/bin/sh
+              echo "Simulating KIND cluster setup"
+              echo -n "user123" > $(results.kubeuser.path)
+              echo -n "pass456" > $(results.kubepassword.path)
+              echo -n "https://k8s.example.com" > $(results.kubeserver.path)
+
+    - name: deploy
+      runAfter:
+        - start-kind
+      params:
+        - name: kubeuser
+          value: $(tasks.start-kind.results.kubeuser)
+        - name: kubepassword
+          value: $(tasks.start-kind.results.kubepassword)
+        - name: kubeserver
+          value: $(tasks.start-kind.results.kubeserver)
+        - name: SNAPSHOT
+          value: $(params.SNAPSHOT)
+      workspaces:
+        - name: source
+          workspace: source
+      taskSpec:
+        params:
+          - name: kubeuser
+            type: string
+          - name: kubepassword
+            type: string
+          - name: kubeserver
+            type: string
+          - name: SNAPSHOT
+            type: string
+        steps:
+          - name: deploy-app
+            image: docker.io/library/kubectl:latest
+            workingDir: $(workspaces.source.path)/source
+            script: |
+              #!/bin/sh
+              echo "Deploying with user=$KUBEUSER and snapshot=$IMAGES"
+
+    - name: tests
+      runAfter:
+        - deploy
+      taskSpec:
+        steps:
+          - name: run-tests
+            image: alpine:latest
+            script: |
+              #!/bin/sh
+              echo "Running tests..."
