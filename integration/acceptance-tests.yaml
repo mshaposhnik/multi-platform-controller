@@ -62,12 +62,29 @@ spec:
           - name: SNAPSHOT
             type: string
         steps:
+          - name: install-tekton-api
+            image: docker.io/library/kubectl:latest
+            workingDir: $(workspaces.source.path)/source
+            script: |
+              #!/usr/bin/env bash
+              set -e
+              echo "Deploying Tekton with user=$KUBEUSER and snapshot=$IMAGES"
+              # Prepare Login
+              # kubectl config set-credentials $KUBEUSER/foo.kubernetes.com --username=$KUBEUSER --password=$KUBEPASSWORD
+              # kubectl config set-cluster foo.kubernetes.com --insecure-skip-tls-verify=true --server=$kubeserver
+              # kubectl config set-context default/foo.kubernetes.com/kubeuser --user=kubeuser/foo.kubernetes.com --namespace=default --cluster=foo.kubernetes.com
+                  
+              # install Tekton API
+              # kubectl apply --filename https://storage.googleapis.com/tekton-releases/pipeline/latest/release.yaml
+                  
+              # install Tekton Operator if need
+              # kubectl apply --filename https://storage.googleapis.com/tekton-releases/operator/latest/release.yaml
           - name: deploy-app
             image: docker.io/library/kubectl:latest
             workingDir: $(workspaces.source.path)/source
             script: |
               #!/bin/sh
-              echo "Deploying with user=$KUBEUSER and snapshot=$IMAGES"
+              echo "Deploying MPC with user=$KUBEUSER and snapshot=$IMAGES"
 
     - name: tests
       runAfter:
