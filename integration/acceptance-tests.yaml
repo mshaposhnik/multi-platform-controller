@@ -48,6 +48,16 @@ spec:
           value: $(tasks.start-kind.results.kubeserver)
         - name: SNAPSHOT
           value: $(params.SNAPSHOT)
+      stepTemplate:
+        env:
+          - name: KUBEUSER
+            value: $(params.kubeuser)
+          - name: KUBEPASSWORD
+            value: $(params.kubepassword)
+          - name: KUBESERVER
+            value: $(params.kubeserver)
+          - name: IMAGES
+            value: $(params.SNAPSHOT)
       workspaces:
         - name: source
           workspace: source
