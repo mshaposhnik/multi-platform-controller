@@ -895,6 +895,7 @@ func (r *ReconcileTaskRun) buildDynamicResolver(ctx context.Context, dynamicConf
 		maxInstances:           dynamicConfig.MaxInstances,
 		instanceTag:            instanceTag,
 		timeout:                dynamicConfig.AllocationTimeout,
+		retryPeriod:            60,
 		sudoCommands:           dynamicConfig.SudoCommands,
 		additionalInstanceTags: additionalInstanceTags,
 		eventRecorder:          r.eventRecorder,

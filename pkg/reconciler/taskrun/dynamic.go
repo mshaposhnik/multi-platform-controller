@@ -23,6 +23,7 @@ type DynamicResolver struct {
 	maxInstances           int
 	instanceTag            string
 	timeout                int64
+	retryPeriod            int64
 	sudoCommands           string
 	additionalInstanceTags map[string]string
 	eventRecorder          record.EventRecorder
@@ -124,14 +125,14 @@ func (r DynamicResolver) Allocate(taskRun *ReconcileTaskRun, ctx context.Context
 			return reconcile.Result{}, nil
 		} else { // A transient error (that wasn't returned) occurred when fetching the IP address for the VM
 			state, err := r.GetState(taskRun.client, ctx, cloud.InstanceIdentifier(tr.Annotations[CloudInstanceId]))
-			requeueTime := time.Minute
+			requeueTime := r.retryPeriod
 			if err != nil { //An error occurred while getting the VM state; re-queue quickly since random API errors are prominent
 				log.Error(
 					err,
 					"failed to get the state for instance",
 					"instanceId", cloud.InstanceIdentifier(tr.Annotations[CloudInstanceId]),
 				)
-				requeueTime = time.Second * 10
+				requeueTime = 10
 			} else if state == cloud.FailedState { //VM is in a failed state; try to delete the instance and unassign it from the TaskRun
 				log.Info("VM instance is in a failed state; will attempt to terminate, unassign from task")
 				terr := r.TerminateInstance(taskRun.client, ctx, cloud.InstanceIdentifier(tr.Annotations[CloudInstanceId]))
@@ -147,7 +148,9 @@ func (r DynamicResolver) Allocate(taskRun *ReconcileTaskRun, ctx context.Context
 				}
 			}
 			//Always try to re-queue the task
-			return reconcile.Result{RequeueAfter: requeueTime}, nil
+			r.retryPeriod = r.retryPeriod + 5
+			taskRun.platformConfig[r.platform] = r
+			return reconcile.Result{RequeueAfter: time.Duration(requeueTime) * time.Second}, nil
 		}
 	}
 	// First check that creating this VM would not exceed the maximum VM platforms configured
